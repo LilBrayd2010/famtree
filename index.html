@@ -2,342 +2,209 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FamTree</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.23.0/cytoscape.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: system-ui, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            margin: 0;
+            padding: 0;
             height: 100dvh;
             overflow: hidden;
         }
         header {
             background: white;
-            padding: 12px 16px;
+            padding: 15px 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
-        .logo { font-size: 26px; font-weight: bold; color: #5a67d8; }
-        
-        .main-container { display: flex; flex-direction: column; height: calc(100dvh - 56px); }
-        .sidebar { background: white; padding: 16px; overflow-y: auto; max-height: 42%; }
-        .graph-container { flex: 1; position: relative; }
-        #cy { width: 100%; height: 100%; background: #f8fafc; }
+        .logo { font-size: 28px; font-weight: 800; color: #4f46e5; }
 
-        .panel { background: #f8fafc; border-radius: 12px; padding: 14px; margin-bottom: 14px; }
-        input, select, button {
-            width: 100%; padding: 12px; margin: 6px 0; border-radius: 10px; border: 1px solid #e2e8f0; font-size: 16px;
+        .tree-container {
+            height: calc(100dvh - 70px);
+            overflow: auto;
+            padding: 30px;
+            background: #f8fafc;
+            position: relative;
         }
-        button { background: #5a67d8; color: white; border: none; font-weight: 600; }
-        .btn-small { padding: 10px; font-size: 14px; width: auto; }
+
+        .generation {
+            margin-bottom: 80px;
+            text-align: center;
+        }
+
+        .gen-title {
+            font-size: 18px;
+            color: #64748b;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+
+        .people-row {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            flex-wrap: wrap;
+            margin: 20px 0;
+        }
+
+        .person {
+            background: white;
+            border-radius: 16px;
+            padding: 16px 20px;
+            width: 180px;
+            text-align: center;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            border: 4px solid;
+            position: relative;
+        }
+
+        .person.male { border-color: #3b82f6; }
+        .person.female { border-color: #ec4899; }
+        .person.other { border-color: #10b981; }
+
+        .person h3 { margin: 8px 0 4px; font-size: 17px; }
+        .person small { color: #64748b; }
+
+        .connector {
+            height: 60px;
+            width: 3px;
+            background: #64748b;
+            margin: 0 auto;
+        }
+
+        .spouse-line {
+            height: 3px;
+            background: #64748b;
+            margin: 15px auto;
+            width: 80px;
+        }
 
         .controls {
-            position: absolute; top: 12px; right: 12px; background: white; padding: 8px; border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2); z-index: 100; display: flex; gap: 8px;
-        }
-        .info-panel {
-            position: absolute; bottom: 12px; left: 12px; right: 12px; background: white;
-            padding: 16px; border-radius: 16px; box-shadow: 0 6px 20px rgba(0,0,0,0.25);
-            display: none; z-index: 200; max-height: 45%; overflow-y: auto;
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            padding: 12px;
+            border-radius: 9999px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            display: flex;
+            gap: 10px;
+            z-index: 100;
         }
     </style>
 </head>
 <body>
     <header>
         <div class="logo"><i class="fas fa-tree"></i> FamTree</div>
-        <div>
-            <span id="userDisplay" style="margin-right:12px; font-weight:500;"></span>
-            <button onclick="showLogin()" class="btn-small">Sign In</button>
-        </div>
+        <button onclick="showLogin()">Sign In</button>
     </header>
 
-    <div class="main-container">
-        <div class="sidebar">
-            <div class="panel">
-                <h3>Add Person</h3>
-                <input type="text" id="name" placeholder="Full Name">
-                <select id="gender">
-                    <option value="male">Male (Blue)</option>
-                    <option value="female">Female (Pink)</option>
-                    <option value="other">Other (Green)</option>
-                </select>
-                <input type="date" id="birthdate">
-                <button onclick="addPerson()">+ Add Person</button>
-            </div>
-
-            <div class="panel">
-                <h3>Add Relationship</h3>
-                <select id="person1"></select>
-                <select id="relationType">
-                    <option value="parent">Parent → Child</option>
-                    <option value="spouse">Spouse</option>
-                    <option value="sibling">Sibling</option>
-                </select>
-                <select id="person2"></select>
-                <button onclick="addRelationship()">Add Relationship</button>
-            </div>
-
-            <div class="panel">
-                <h3>Family (<span id="count">0</span>)</h3>
-                <div id="peopleList" style="max-height:160px; overflow-y:auto;"></div>
-            </div>
-        </div>
-
-        <div class="graph-container">
-            <div id="cy"></div>
-            
-            <div class="controls">
-                <button onclick="resetView()" title="Reset"><i class="fas fa-sync"></i></button>
-                <button onclick="loadExample()" title="Example"><i class="fas fa-magic"></i></button>
-                <button onclick="exportToPDF()" style="background:#10b981;" title="Export PDF"><i class="fas fa-file-pdf"></i></button>
-                <button onclick="clearAll()" style="background:#ef4444;">Clear</button>
-            </div>
-
-            <div class="info-panel" id="infoPanel">
-                <h3 id="infoName"></h3>
-                <div id="infoDetails"></div>
-                <button onclick="closeInfo()" style="margin-top:10px;">Close</button>
-            </div>
-        </div>
+    <div class="tree-container" id="treeContainer">
+        <!-- Tree will be generated here -->
     </div>
 
-    <!-- Login Modal -->
-    <div id="loginModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center;">
-        <div style="background:white; padding:24px; border-radius:16px; width:90%; max-width:340px;">
-            <h2>Sign In to Save</h2>
-            <input type="text" id="username" placeholder="Your Name" style="margin:12px 0;">
-            <button onclick="login()" style="margin-bottom:8px;">Sign In</button>
-            <button onclick="closeLogin()" class="btn-small" style="background:#64748b;">Cancel</button>
-        </div>
+    <div class="controls">
+        <button onclick="addPersonPrompt()" title="Add Person"><i class="fas fa-plus"></i></button>
+        <button onclick="loadExample()" title="Example"><i class="fas fa-magic"></i></button>
+        <button onclick="exportToPDF()" style="background:#10b981;" title="Export PDF"><i class="fas fa-file-pdf"></i></button>
     </div>
 
     <script>
         let people = [];
         let relationships = [];
-        let currentUser = "Guest";
-        let cy = null;
 
-        function loadData() {
-            const saved = localStorage.getItem('famtree_data');
-            if (saved) {
-                const data = JSON.parse(saved);
-                people = data.people || [];
-                relationships = data.relationships || [];
-            }
-        }
+        function renderTree() {
+            const container = document.getElementById('treeContainer');
+            container.innerHTML = '<h2 style="text-align:center; color:#1e2937; margin:20px;">Your Family Tree</h2>';
 
-        function saveData() {
-            localStorage.setItem('famtree_data', JSON.stringify({people, relationships}));
-        }
+            // Simple layered rendering (Generation 1, 2, 3...)
+            const gen1 = people.slice(0, 2); // Top generation example
+            const gen2 = people.slice(2, 4);
+            const gen3 = people.slice(4);
 
-        function login() {
-            currentUser = document.getElementById('username').value.trim() || "Guest";
-            document.getElementById('userDisplay').innerHTML = `👤 ${currentUser}`;
-            closeLogin();
-            saveData();
-        }
-
-        function showLogin() { document.getElementById('loginModal').style.display = 'flex'; }
-        function closeLogin() { document.getElementById('loginModal').style.display = 'none'; }
-
-        function addPerson() {
-            const name = document.getElementById('name').value.trim();
-            if (!name) return alert("Name required");
-            people.push({
-                id: 'p' + Date.now(),
-                name: name,
-                gender: document.getElementById('gender').value,
-                birthdate: document.getElementById('birthdate').value
-            });
-            document.getElementById('name').value = '';
-            renderPeopleList();
-            updateSelects();
-            initTree();
-            saveData();
-        }
-
-        function addRelationship() {
-            const from = document.getElementById('person1').value;
-            const to = document.getElementById('person2').value;
-            const type = document.getElementById('relationType').value;
-            if (!from || !to || from === to) return alert("Choose two different people");
-            relationships.push({from, to, type});
-            initTree();
-            saveData();
-        }
-
-        function renderPeopleList() {
-            const container = document.getElementById('peopleList');
-            container.innerHTML = '';
-            people.forEach(p => {
-                const div = document.createElement('div');
-                div.style.padding = "10px"; div.style.background = "#fff"; div.style.marginBottom = "8px"; div.style.borderRadius = "10px";
-                div.innerHTML = `<strong>${p.name}</strong> <small>(${p.gender})</small>`;
+            // Generation 1
+            if (gen1.length > 0) {
+                const div = createGeneration("Generation 1 (Grandparents)", gen1);
                 container.appendChild(div);
-            });
-            document.getElementById('count').textContent = people.length;
-        }
+            }
 
-        function updateSelects() {
-            const s1 = document.getElementById('person1');
-            const s2 = document.getElementById('person2');
-            s1.innerHTML = s2.innerHTML = '<option value="">Select...</option>';
-            people.forEach(p => {
-                const opt = `<option value="${p.id}">${p.name}</option>`;
-                s1.innerHTML += opt; s2.innerHTML += opt;
-            });
-        }
+            // Connector
+            container.innerHTML += '<div class="connector" style="height:80px"></div>';
 
-        function initTree() {
-            if (cy) cy.destroy();
+            // Generation 2
+            if (gen2.length > 0) {
+                const div = createGeneration("Generation 2 (Parents)", gen2);
+                container.appendChild(div);
+            }
 
-            const elements = people.map(p => ({
-                data: { id: p.id, name: p.name, gender: p.gender }
-            }));
-
-            relationships.forEach((r, i) => {
-                elements.push({ data: { id: 'e'+i, source: r.from, target: r.to, label: r.type } });
-            });
-
-            cy = cytoscape({
-                container: document.getElementById('cy'),
-                elements: elements,
-                style: [
-                    {
-                        selector: 'node',
-                        style: {
-                            'label': 'data(name)',
-                            'width': 80,
-                            'height': 80,
-                            'background-color': '#fff',
-                            'border-width': 5,
-                            'font-size': '13px',
-                            'text-valign': 'center',
-                            'text-halign': 'center',
-                            'font-weight': '600'
-                        }
-                    },
-                    { selector: 'node[gender="male"]',   style: { 'border-color': '#3b82f6' } },   // Blue
-                    { selector: 'node[gender="female"]', style: { 'border-color': '#ec4899' } },   // Pink
-                    { selector: 'node[gender="other"]',  style: { 'border-color': '#10b981' } },   // Green
-
-                    {
-                        selector: 'edge',
-                        style: {
-                            'width': 3,
-                            'line-color': '#64748b',
-                            'target-arrow-shape': 'triangle',
-                            'label': 'data(label)',
-                            'font-size': '11px',
-                            'curve-style': 'bezier'
-                        }
-                    }
-                ],
-                layout: {
-                    name: 'breadthfirst',
-                    directed: true,
-                    spacingFactor: 1.4,
-                    padding: 50,
-                    animate: true
-                }
-            });
-
-            cy.on('tap', 'node', evt => {
-                const person = people.find(p => p.id === evt.target.id());
-                if (person) showPersonInfo(person);
-            });
-        }
-
-        function showPersonInfo(person) {
-            document.getElementById('infoName').textContent = person.name;
-            document.getElementById('infoDetails').innerHTML = `
-                Gender: <strong>${person.gender}</strong><br>
-                Born: ${person.birthdate || '—'}
-            `;
-            document.getElementById('infoPanel').style.display = 'block';
-        }
-
-        function closeInfo() { document.getElementById('infoPanel').style.display = 'none'; }
-        function resetView() { if (cy) cy.fit(); }
-
-        async function exportToPDF() { /* same as previous version */ 
-            if (!cy || people.length === 0) return alert("Add people first!");
-            try {
-                const container = document.getElementById('cy');
-                const originalH = container.style.height;
-                container.style.height = '900px';
-                cy.fit();
-
-                const canvas = await html2canvas(container, {scale: 2, backgroundColor: '#f8fafc'});
-                container.style.height = originalH;
-
-                const { jsPDF } = window.jspdf;
-                const pdf = new jsPDF({
-                    orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
-                    unit: 'px',
-                    format: [canvas.width, canvas.height]
-                });
-
-                pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, canvas.width, canvas.height);
-                pdf.setFontSize(18);
-                pdf.text(`FamTree - ${currentUser}`, 30, 40);
-                pdf.save(`FamTree_${currentUser.replace(/ /g,'_')}.pdf`);
-                alert("PDF downloaded!");
-            } catch(e) {
-                alert("PDF export failed. Try on desktop.");
+            // Generation 3
+            if (gen3.length > 0) {
+                container.innerHTML += '<div class="connector" style="height:80px"></div>';
+                const div = createGeneration("Generation 3 (Children)", gen3);
+                container.appendChild(div);
             }
         }
 
-        function clearAll() {
-            if (confirm("Clear everything?")) {
-                people = []; relationships = [];
-                renderPeopleList(); updateSelects(); initTree(); saveData();
-            }
+        function createGeneration(title, members) {
+            const gen = document.createElement('div');
+            gen.className = 'generation';
+            gen.innerHTML = `<div class="gen-title">${title}</div>`;
+            
+            const row = document.createElement('div');
+            row.className = 'people-row';
+
+            members.forEach(person => {
+                const card = document.createElement('div');
+                card.className = `person ${person.gender}`;
+                card.innerHTML = `
+                    <h3>${person.name}</h3>
+                    <small>${person.gender} • ${person.birthdate || '—'}</small>
+                `;
+                row.appendChild(card);
+            });
+
+            gen.appendChild(row);
+            return gen;
+        }
+
+        function addPersonPrompt() {
+            const name = prompt("Person's Full Name:");
+            if (!name) return;
+            const gender = prompt("Gender (male / female / other):", "male").toLowerCase();
+            const birth = prompt("Birth Year (optional):");
+            people.push({id: Date.now(), name, gender, birthdate: birth});
+            renderTree();
         }
 
         function loadExample() {
-            if (people.length > 0 && !confirm("Replace with example?")) return;
-            people = [];
-            relationships = [];
-
-            const grandpa = {id:'p1',name:"Grandpa",gender:"male",birthdate:"1950-01-01"};
-            const grandma = {id:'p2',name:"Grandma",gender:"female",birthdate:"1952-06-15"};
-            const dad = {id:'p3',name:"Dad",gender:"male",birthdate:"1978-03-20"};
-            const mom = {id:'p4',name:"Mom",gender:"female",birthdate:"1980-11-10"};
-            const you = {id:'p5',name:"You",gender:"male",birthdate:"2005-07-22"};
-            const sister = {id:'p6',name:"Sister",gender:"female",birthdate:"2008-04-05"};
-
-            people = [grandpa, grandma, dad, mom, you, sister];
-            relationships = [
-                {from:grandpa.id, to:dad.id, type:"parent"},
-                {from:grandma.id, to:dad.id, type:"parent"},
-                {from:dad.id, to:you.id, type:"parent"},
-                {from:mom.id, to:you.id, type:"parent"},
-                {from:dad.id, to:sister.id, type:"parent"},
-                {from:mom.id, to:sister.id, type:"parent"},
-                {from:dad.id, to:mom.id, type:"spouse"}
+            people = [
+                {id:1, name:"Henry Thompson", gender:"male", birthdate:"1952"},
+                {id:2, name:"Margaret Thompson", gender:"female", birthdate:"1955"},
+                {id:3, name:"James Thompson", gender:"male", birthdate:"1979"},
+                {id:4, name:"Sophia Thompson", gender:"female", birthdate:"1982"},
+                {id:5, name:"Emma Thompson", gender:"female", birthdate:"2006"},
+                {id:6, name:"Liam Thompson", gender:"male", birthdate:"2009"}
             ];
-
-            renderPeopleList();
-            updateSelects();
-            initTree();
-            saveData();
+            renderTree();
         }
 
+        async function exportToPDF() {
+            alert("In a full version this would export the tree as PDF.\n\nFor now, use browser print (Ctrl+P) → Save as PDF.");
+        }
+
+        function showLogin() {
+            const name = prompt("Enter your name to sign in:");
+            if (name) alert(`Signed in as ${name}. Progress is saved in browser.`);
+        }
+
+        // Initialize
         window.onload = () => {
-            loadData();
-            document.getElementById('userDisplay').innerHTML = `👤 ${currentUser}`;
-            renderPeopleList();
-            updateSelects();
-            initTree();
-            if (people.length === 0) loadExample();
+            loadExample();
         };
     </script>
 </body>
